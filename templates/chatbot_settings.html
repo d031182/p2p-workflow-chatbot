@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Chatbot Settings{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>
+                <i class="bi bi-gear"></i> Chatbot Configuration
+            </h2>
+            <p class="text-muted">Configure chatbot capabilities and tools</p>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <!-- Current Configuration -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Current Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Mode:</strong> <span class="badge bg-info">{{ config.mode }}</span></p>
+                    <p><strong>LLM Backend:</strong> <span class="badge bg-secondary">{{ config.llm_backend }}</span></p>
+                    <p><strong>Tools Enabled:</strong> <span class="badge bg-{{ 'success' if config.tools_enabled else 'danger' }}">{{ 'Yes' if config.tools_enabled else 'No' }}</span></p>
+                    
+                    {% if config.tools_enabled %}
+                    <hr>
+                    <p class="mb-2"><strong>Active Tools:</strong></p>
+                    <ul class="list-unstyled">
+                        {% for tool in config.active_tools %}
+                        <li><i class="bi bi-check-circle text-success"></i> {{ tool }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Form -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-sliders"></i> Update Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="/api/chatbot/configure">
+                        <!-- Chatbot Mode -->
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Chatbot Mode</strong></label>
+                            <select class="form-select" name="mode" id="chatbot-mode">
+                                <option value="rule_based" {% if config.mode == 'rule_based' %}selected{% endif %}>Rule-Based (Fast, Accurate)</option>
+                                <option value="hybrid" {% if config.mode == 'hybrid' %}selected{% endif %}>Hybrid (Rule-Based + LLM)</option>
+                                <option value="rag" {% if config.mode == 'rag' %}selected{% endif %}>RAG (Knowledge Base + LLM)</option>
+                                <option value="tools" {% if config.mode == 'tools' %}selected{% endif %}>Tools (Advanced Analysis)</option>
+                            </select>
+                            <small class="text-muted">Choose chatbot implementation</small>
+                        </div>
+
+                        <!-- LLM Backend -->
+                        <div class="mb-3">
+                            <label class="form-label"><strong>LLM Backend</strong></label>
+                            <select class="form-select" name="llm_backend">
+                                <option value="none" {% if config.llm_backend == 'none' %}selected{% endif %}>None (Rule-Based Only)</option>
+                                <option value="transformers" {% if config.llm_backend == 'transformers' %}selected{% endif %}>Transformers (Free)</option>
+                                <option value="ollama" {% if config.llm_backend == 'ollama' %}selected{% endif %}>Ollama (Free, Better Quality)</option>
+                                <option value="openai" {% if config.llm_backend == 'openai' %}selected{% endif %}>OpenAI (Paid, Best Quality)</option>
+                            </select>
+                            <small class="text-muted">LLM for enhancement (optional)</small>
+                        </div>
+
+                        <!-- Tool Selection -->
+                        <div id="tool-selection">
+                            <hr>
+                            <p class="mb-2"><strong>Advanced Analysis Tools:</strong></p>
+                            <small class="text-muted d-block mb-3">Check the tools you want to enable</small>
+                            
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="tool_analyze_outliers" id="tool-outliers" 
+                                       {% if 'analyze_outliers' in config.enabled_tools %}checked{% endif %}>
+                                <label class="form-check-label" for="tool-outliers">
+                                    📊 <strong>Analyze Outliers</strong>
+                                    <br><small class="text-muted">Detect unusual amounts using statistical analysis</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="tool_calculate_statistics" id="tool-stats" 
+                                       {% if 'calculate_statistics' in config.enabled_tools %}checked{% endif %}>
+                                <label class="form-check-label" for="tool-stats">
+                                    📈 <strong>Calculate Statistics</strong>
+                                    <br><small class="text-muted">Mean, median, percentiles, distributions</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="tool_find_spending_trends" id="tool-trends" 
+                                       {% if 'find_spending_trends' in config.enabled_tools %}checked{% endif %}>
+                                <label class="form-check-label" for="tool-trends">
+                                    💹 <strong>Find Spending Trends</strong>
+                                    <br><small class="text-muted">Analyze by department, vendor, time</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="tool_predict_payment_date" id="tool-predict" 
+                                       {% if 'predict_payment_date' in config.enabled_tools %}checked{% endif %}>
+                                <label class="form-check-label" for="tool-predict">
+                                    🔮 <strong>Predict Payment Date</strong>
+                                    <br><small class="text-muted">ML-based payment predictions</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="tool_risk_assessment" id="tool-risk" 
+                                       {% if 'risk_assessment' in config.enabled_tools %}checked{% endif %}>
+                                <label class="form-check-label" for="tool-risk">
+                                    🚨 <strong>Risk Assessment</strong>
+                                    <br><small class="text-muted">Document risk scoring and recommendations</small>
+                                </label>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-save"></i> Save Configuration
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tool Documentation -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-book"></i> Tool Documentation</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>📊 Analyze Outliers</h6>
+                            <p class="small">Uses Z-score statistical method to identify documents with unusual amounts.</p>
+                            <p class="small"><strong>Example:</strong> "Find outliers in invoices"</p>
+                            <hr>
+
+                            <h6>📈 Calculate Statistics</h6>
+                            <p class="small">Comprehensive statistical analysis: mean, median, standard deviation, percentiles.</p>
+                            <p class="small"><strong>Example:</strong> "Show invoice statistics"</p>
+                            <hr>
+
+                            <h6>💹 Find Spending Trends</h6>
+                            <p class="small">Analyze spending patterns by department, vendor, or time period.</p>
+                            <p class="small"><strong>Example:</strong> "Spending trends by department"</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>🔮 Predict Payment Date</h6>
+                            <p class="small">ML-based prediction of when invoices will be paid.</p>
+                            <p class="small"><strong>Example:</strong> "When will INV-12345 be paid?"</p>
+                            <hr>
+
+                            <h6>🚨 Risk Assessment</h6>
+                            <p class="small">Assess risk level of documents based on multiple factors.</p>
+                            <p class="small"><strong>Example:</strong> "Assess risk for INV-12345"</p>
+                            <hr>
+
+                            <div class="alert alert-info">
+                                <strong>Note:</strong> Tools can be combined with any chatbot mode for enhanced capabilities.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3 text-center">
+        <a href="/chatbot" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Back to Chatbot</a>
+    </div>
+</div>
+
+<script>
+// Show/hide tool selection based on enable toggle
+document.getElementById('enable-tools').addEventListener('change', function() {
+    document.getElementById('tool-selection').style.display = this.checked ? 'block' : 'none';
+});
+
+// Show mode description
+document.getElementById('chatbot-mode').addEventListener('change', function() {
+    const descriptions = {
+        'rule_based': 'Fast, accurate, perfect for structured queries',
+        'hybrid': 'Combines rule-based accuracy with LLM flexibility',
+        'rag': 'Uses knowledge base for context-aware responses',
+        'tools': 'Advanced analytical capabilities with function calling'
+    };
+    console.log('Selected mode:', this.value, '-', descriptions[this.value]);
+});
+</script>
+{% endblock %}

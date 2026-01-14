@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Goods Receipts - P2P Workflow{% endblock %}
+
+{% block content %}
+<h1>Goods Receipts</h1>
+
+<div class="card">
+    {% if goods_receipts %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>GR Number</th>
+                    <th>Related PO</th>
+                    <th>Received By</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for gr in goods_receipts %}
+                <tr>
+                    <td><strong>{{ gr.gr_number }}</strong></td>
+                    <td>{{ gr.po_number }}</td>
+                    <td>{{ gr.received_by }}</td>
+                    <td>{{ gr.total_amount | format_currency }}</td>
+                    <td><span class="badge badge-{{ gr.status | status_badge_class }}">{{ gr.status.value }}</span></td>
+                    <td>{{ gr.receipt_date | format_datetime }}</td>
+                    <td><a href="{{ url_for('goods_receipt_detail', gr_id=gr.id) }}" class="btn btn-primary">View</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📦</div>
+            <p>No goods receipts found.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - P2P Workflow{% endblock %}
+
+{% block content %}
+<h1>Purchase-to-Pay Workflow Dashboard</h1>
+
+<div class="dashboard-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Purchase Orders</div>
+        <div class="stat-value">{{ stats.total_pos }}</div>
+        <a href="{{ url_for('purchase_orders') }}" class="btn btn-primary" style="margin-top: 1rem;">View All</a>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total Goods Receipts</div>
+        <div class="stat-value">{{ stats.total_grs }}</div>
+        <a href="{{ url_for('goods_receipts') }}" class="btn btn-primary" style="margin-top: 1rem;">View All</a>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total Invoices</div>
+        <div class="stat-value">{{ stats.total_invoices }}</div>
+        <a href="{{ url_for('invoices') }}" class="btn btn-primary" style="margin-top: 1rem;">View All</a>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total Spend</div>
+        <div class="stat-value">{{ stats.total_spend | format_currency }}</div>
+        <small style="color: #6c757d;">Paid Invoices</small>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="stat-card" style="background-color: #fff3cd;">
+        <div class="stat-label" style="color: #856404;">Pending Approvals</div>
+        <div class="stat-value" style="color: #856404;">{{ pending_count }}</div>
+        <a href="{{ url_for('pending_approvals') }}" class="btn btn-primary" style="margin-top: 1rem;">View Pending</a>
+    </div>
+
+    <div class="stat-card" style="background-color: #f8d7da;">
+        <div class="stat-label" style="color: #721c24;">Blocked Documents</div>
+        <div class="stat-value" style="color: #721c24;">{{ blocked_count }}</div>
+        <a href="{{ url_for('blocked_documents') }}" class="btn btn-danger" style="margin-top: 1rem;">View Blocked</a>
+    </div>
+
+    <div class="stat-card" style="background-color: #d4edda;">
+        <div class="stat-label" style="color: #155724;">Paid Invoices</div>
+        <div class="stat-value" style="color: #155724;">{{ stats.paid_invoices }}</div>
+    </div>
+
+    <div class="stat-card" style="background-color: #f8d7da;">
+        <div class="stat-label" style="color: #721c24;">Overdue Invoices</div>
+        <div class="stat-value" style="color: #721c24;">{{ stats.overdue_invoices }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Quick Actions</div>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="{{ url_for('purchase_orders') }}" class="btn btn-primary">View Purchase Orders</a>
+        <a href="{{ url_for('goods_receipts') }}" class="btn btn-primary">View Goods Receipts</a>
+        <a href="{{ url_for('invoices') }}" class="btn btn-primary">View Invoices</a>
+        <a href="{{ url_for('approval_policies') }}" class="btn btn-primary">Approval Policies</a>
+        <a href="{{ url_for('statistics') }}" class="btn btn-primary">Full Statistics</a>
+        <form action="{{ url_for('regenerate_data') }}" method="POST" style="display: inline;">
+            <button type="submit" class="btn btn-success">Regenerate Sample Data</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">About P2P Workflow</div>
+    <p>This application demonstrates a complete Purchase-to-Pay business process including:</p>
+    <ul>
+        <li><strong>Purchase Orders:</strong> Create and manage purchase orders with multi-level approval workflows</li>
+        <li><strong>Goods Receipts:</strong> Record and validate received goods with quality checks</li>
+        <li><strong>Invoices:</strong> Process vendor invoices with three-way matching and payment tracking</li>
+        <li><strong>Approval Policies:</strong> Configurable approval workflows based on transaction amounts</li>
+        <li><strong>Status Tracking:</strong> Complete lifecycle tracking including blocked status for processing issues</li>
+    </ul>
+</div>
+{% endblock %}

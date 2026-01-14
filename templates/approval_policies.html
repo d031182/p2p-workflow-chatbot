@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Approval Policies - P2P Workflow{% endblock %}
+
+{% block content %}
+<h1>Approval Policies</h1>
+
+<div class="card">
+    {% if policies %}
+        {% for policy in policies %}
+        <div style="padding: 1.5rem; border-bottom: 1px solid #dee2e6;">
+            <h3>{{ policy.name }}</h3>
+            <p style="color: #6c757d;">{{ policy.description }}</p>
+            <div class="detail-grid">
+                <div class="detail-label">Amount Range:</div>
+                <div class="detail-value">{{ policy.min_amount | format_currency }} - {{ policy.max_amount | format_currency }}</div>
+                
+                <div class="detail-label">Approval Levels:</div>
+                <div class="detail-value">{{ policy.approval_levels }}</div>
+                
+                <div class="detail-label">Required Approvers:</div>
+                <div class="detail-value">
+                    {% for approver in policy.required_approvers %}
+                        <span class="badge badge-info">{{ approver }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <p>No approval policies configured.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

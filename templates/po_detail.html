@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}PO {{ summary.purchase_order.po_number }} - P2P Workflow{% endblock %}
+
+{% block content %}
+<h1>Purchase Order {{ summary.purchase_order.po_number }}</h1>
+
+<div class="card">
+    <div class="card-header">Purchase Order Details</div>
+    <div class="detail-grid">
+        <div class="detail-label">Status:</div>
+        <div class="detail-value"><span class="badge badge-{{ summary.purchase_order.status | status_badge_class }}">{{ summary.purchase_order.status.value }}</span></div>
+        
+        <div class="detail-label">Vendor:</div>
+        <div class="detail-value">{{ summary.purchase_order.vendor_name }} ({{ summary.purchase_order.vendor_id }})</div>
+        
+        <div class="detail-label">Requester:</div>
+        <div class="detail-value">{{ summary.purchase_order.requester }} ({{ summary.purchase_order.department }})</div>
+        
+        <div class="detail-label">Created:</div>
+        <div class="detail-value">{{ summary.purchase_order.creation_date | format_datetime }}</div>
+        
+        <div class="detail-label">Payment Terms:</div>
+        <div class="detail-value">{{ summary.purchase_order.payment_terms.value }}</div>
+        
+        <div class="detail-label">Delivery Address:</div>
+        <div class="detail-value">{{ summary.purchase_order.delivery_address }}</div>
+        
+        {% if summary.purchase_order.notes %}
+        <div class="detail-label">Notes:</div>
+        <div class="detail-value">{{ summary.purchase_order.notes }}</div>
+        {% endif %}
+        
+        {% if summary.purchase_order.blocked_reason %}
+        <div class="detail-label">⚠ Blocked Reason:</div>
+        <div class="detail-value" style="color: #dc3545; font-weight: bold;">{{ summary.purchase_order.blocked_reason }}</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Line Items</div>
+    <div class="line-items">
+        {% for item in summary.purchase_order.line_items %}
+        <div class="line-item">
+            <div><strong>{{ item.description }}</strong></div>
+            <div style="color: #6c757d;">Code: {{ item.item_code }}</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 0.5rem;">
+                <div>Qty: {{ item.quantity }}</div>
+                <div>Unit Price: {{ item.unit_price | format_currency }}</div>
+                <div>Tax: {{ item.tax_amount | format_currency }}</div>
+                <div><strong>Total: {{ item.total | format_currency }}</strong></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #dee2e6;">
+        <div class="detail-grid">
+            <div class="detail-label">Subtotal:</div>
+            <div class="detail-value">{{ summary.purchase_order.subtotal | format_currency }}</div>
+            
+            <div class="detail-label">Tax:</div>
+            <div class="detail-value">{{ summary.purchase_order.tax_total | format_currency }}</div>
+            
+            <div class="detail-label"><strong>Total Amount:</strong></div>
+            <div class="detail-value"><strong>{{ summary.purchase_order.total_amount | format_currency }}</strong></div>
+        </div>
+    </div>
+</div>
+
+{% if summary.purchase_order.approvals %}
+<div class="card">
+    <div class="card-header">Approval History</div>
+    <div class="approval-timeline">
+        {% for approval in summary.purchase_order.approvals %}
+        <div class="approval-step {{ approval.status.lower() }}">
+            <div><strong>{{ approval.approver }}</strong></div>
+            <div><span class="badge badge-{{ 'success' if approval.status == 'Approved' else ('danger' if approval.status == 'Rejected' else 'warning') }}">{{ approval.status }}</span></div>
+            {% if approval.comments %}
+            <div style="margin-top: 0.5rem; color: #6c757d;">{{ approval.comments }}</div>
+            {% endif %}
+            <div style="font-size: 0.875rem; color: #6c757d; margin-top: 0.25rem;">{{ approval.timestamp | format_datetime }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if summary.goods_receipts %}
+<div class="card">
+    <div class="card-header">Related Goods Receipts</div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>GR Number</th>
+                <th>Status</th>
+                <th>Received By</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for gr in summary.goods_receipts %}
+            <tr>
+                <td><strong>{{ gr.gr_number }}</strong></td>
+                <td><span class="badge badge-{{ gr.status | status_badge_class }}">{{ gr.status.value }}</span></td>
+                <td>{{ gr.received_by }}</td>
+                <td>{{ gr.total_amount | format_currency }}</td>
+                <td>{{ gr.receipt_date | format_datetime }}</td>
+                <td><a href="{{ url_for('goods_receipt_detail', gr_id=gr.id) }}" class="btn btn-primary">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if summary.invoices %}
+<div class="card">
+    <div class="card-header">Related Invoices</div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Invoice Number</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Due Date</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for invoice in summary.invoices %}
+            <tr>
+                <td><strong>{{ invoice.invoice_number }}</strong></td>
+                <td><span class="badge badge-{{ invoice.status | status_badge_class }}">{{ invoice.status.value }}</span></td>
+                <td>{{ invoice.total_amount | format_currency }}</td>
+                <td>{{ invoice.due_date | format_date }}</td>
+                <td><a href="{{ url_for('invoice_detail', invoice_id=invoice.id) }}" class="btn btn-primary">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">Financial Summary</div>
+    <div class="detail-grid">
+        <div class="detail-label">PO Total:</div>
+        <div class="detail-value">{{ summary.purchase_order.total_amount | format_currency }}</div>
+        
+        <div class="detail-label">Total Received:</div>
+        <div class="detail-value">{{ summary.total_received | format_currency }}</div>
+        
+        <div class="detail-label">Total Invoiced:</div>
+        <div class="detail-value">{{ summary.total_invoiced | format_currency }}</div>
+        
+        <div class="detail-label">Total Paid:</div>
+        <div class="detail-value">{{ summary.total_paid | format_currency }}</div>
+        
+        <div class="detail-label"><strong>Outstanding:</strong></div>
+        <div class="detail-value"><strong>{{ (summary.total_invoiced - summary.total_paid) | format_currency }}</strong></div>
+    </div>
+</div>
+
+<div>
+    <a href="{{ url_for('purchase_orders') }}" class="btn btn-secondary">Back to Purchase Orders</a>
+</div>
+{% endblock %}

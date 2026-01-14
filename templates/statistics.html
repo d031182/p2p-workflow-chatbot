@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - P2P Workflow{% endblock %}
+
+{% block content %}
+<h1>Workflow Statistics</h1>
+
+<div class="card">
+    <div class="card-header">Purchase Orders</div>
+    <div class="detail-grid">
+        <div class="detail-label">Total:</div>
+        <div class="detail-value">{{ stats.total_pos }}</div>
+        
+        <div class="detail-label">Approved:</div>
+        <div class="detail-value">{{ stats.approved_pos }}</div>
+        
+        <div class="detail-label">Pending Approval:</div>
+        <div class="detail-value">{{ stats.pending_pos }}</div>
+        
+        <div class="detail-label">Blocked:</div>
+        <div class="detail-value">{{ stats.blocked_pos }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Goods Receipts</div>
+    <div class="detail-grid">
+        <div class="detail-label">Total:</div>
+        <div class="detail-value">{{ stats.total_grs }}</div>
+        
+        <div class="detail-label">Accepted:</div>
+        <div class="detail-value">{{ stats.accepted_grs }}</div>
+        
+        <div class="detail-label">Blocked:</div>
+        <div class="detail-value">{{ stats.blocked_grs }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Invoices</div>
+    <div class="detail-grid">
+        <div class="detail-label">Total:</div>
+        <div class="detail-value">{{ stats.total_invoices }}</div>
+        
+        <div class="detail-label">Paid:</div>
+        <div class="detail-value">{{ stats.paid_invoices }}</div>
+        
+        <div class="detail-label">Overdue:</div>
+        <div class="detail-value">{{ stats.overdue_invoices }}</div>
+        
+        <div class="detail-label">Blocked:</div>
+        <div class="detail-value">{{ stats.blocked_invoices }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Financial Summary</div>
+    <div class="detail-grid">
+        <div class="detail-label"><strong>Total Spend (Paid Invoices):</strong></div>
+        <div class="detail-value"><strong style="font-size: 1.5rem; color: #0066cc;">{{ stats.total_spend | format_currency }}</strong></div>
+    </div>
+</div>
+{% endblock %}

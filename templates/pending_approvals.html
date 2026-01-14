@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Approvals - P2P Workflow{% endblock %}
+
+{% block content %}
+<h1>Pending Approvals</h1>
+
+{% if pending.purchase_orders %}
+<div class="card">
+    <div class="card-header">Pending Purchase Orders</div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>PO Number</th>
+                <th>Requester</th>
+                <th>Vendor</th>
+                <th>Amount</th>
+                <th>Pending Approvers</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for po in pending.purchase_orders %}
+            <tr>
+                <td><strong>{{ po.po_number }}</strong></td>
+                <td>{{ po.requester }} ({{ po.department }})</td>
+                <td>{{ po.vendor_name }}</td>
+                <td>{{ po.total_amount | format_currency }}</td>
+                <td>
+                    {% for approval in po.approvals %}
+                        {% if approval.status == "Pending" %}
+                            <span class="badge badge-warning">{{ approval.approver }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </td>
+                <td><a href="{{ url_for('purchase_order_detail', po_id=po.id) }}" class="btn btn-primary">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if pending.invoices %}
+<div class="card">
+    <div class="card-header">Pending Invoices</div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Invoice Number</th>
+                <th>Vendor</th>
+                <th>Related PO</th>
+                <th>Amount</th>
+                <th>Pending Approvers</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in pending.invoices %}
+            <tr>
+                <td><strong>{{ inv.invoice_number }}</strong></td>
+                <td>{{ inv.vendor_name }}</td>
+                <td>{{ inv.po_number }}</td>
+                <td>{{ inv.total_amount | format_currency }}</td>
+                <td>
+                    {% for approval in inv.approvals %}
+                        {% if approval.status == "Pending" %}
+                            <span class="badge badge-warning">{{ approval.approver }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </td>
+                <td><a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="btn btn-primary">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if not pending.purchase_orders and not pending.invoices %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-state-icon">✅</div>
+        <p>No pending approvals. All documents are processed!</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

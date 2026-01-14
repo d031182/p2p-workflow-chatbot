@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Invoices - P2P Workflow{% endblock %}
+
+{% block content %}
+<h1>Invoices</h1>
+
+<div class="card">
+    {% if invoices %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Invoice Number</th>
+                    <th>Vendor</th>
+                    <th>Related PO</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in invoices %}
+                <tr>
+                    <td><strong>{{ invoice.invoice_number }}</strong></td>
+                    <td>{{ invoice.vendor_name }}</td>
+                    <td>{{ invoice.po_number }}</td>
+                    <td>{{ invoice.total_amount | format_currency }}</td>
+                    <td><span class="badge badge-{{ invoice.status | status_badge_class }}">{{ invoice.status.value }}</span></td>
+                    <td>{{ invoice.due_date | format_date }}</td>
+                    <td><a href="{{ url_for('invoice_detail', invoice_id=invoice.id) }}" class="btn btn-primary">View</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🧾</div>
+            <p>No invoices found.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

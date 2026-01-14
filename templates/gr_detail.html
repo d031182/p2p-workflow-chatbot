@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}GR {{ gr.gr_number }} - P2P Workflow{% endblock %}
+
+{% block content %}
+<h1>Goods Receipt {{ gr.gr_number }}</h1>
+
+<div class="card">
+    <div class="card-header">Goods Receipt Details</div>
+    <div class="detail-grid">
+        <div class="detail-label">Status:</div>
+        <div class="detail-value"><span class="badge badge-{{ gr.status | status_badge_class }}">{{ gr.status.value }}</span></div>
+        
+        <div class="detail-label">Related PO:</div>
+        <div class="detail-value">{{ gr.po_number }}</div>
+        
+        <div class="detail-label">Received By:</div>
+        <div class="detail-value">{{ gr.received_by }}</div>
+        
+        <div class="detail-label">Receipt Date:</div>
+        <div class="detail-value">{{ gr.receipt_date | format_datetime }}</div>
+        
+        {% if gr.quality_checked %}
+        <div class="detail-label">Quality Check:</div>
+        <div class="detail-value">
+            <span class="badge badge-{{ 'success' if gr.status.value == 'Accepted' else 'danger' }}">
+                {{ 'PASSED' if gr.status.value == 'Accepted' else 'FAILED' }}
+            </span>
+        </div>
+        
+        <div class="detail-label">Quality Checker:</div>
+        <div class="detail-value">{{ gr.quality_checker }}</div>
+        
+        <div class="detail-label">Quality Check Date:</div>
+        <div class="detail-value">{{ gr.quality_check_date | format_datetime }}</div>
+        {% endif %}
+        
+        {% if gr.notes %}
+        <div class="detail-label">Notes:</div>
+        <div class="detail-value">{{ gr.notes }}</div>
+        {% endif %}
+        
+        {% if gr.blocked_reason %}
+        <div class="detail-label">⚠ Blocked Reason:</div>
+        <div class="detail-value" style="color: #dc3545; font-weight: bold;">{{ gr.blocked_reason }}</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Line Items</div>
+    <div class="line-items">
+        {% for item in gr.line_items %}
+        <div class="line-item">
+            <div><strong>{{ item.description }}</strong></div>
+            <div style="color: #6c757d;">Code: {{ item.item_code }}</div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 0.5rem;">
+                <div>Quantity: {{ item.quantity }}</div>
+                <div><strong>Total: {{ item.total | format_currency }}</strong></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #dee2e6;">
+        <div class="detail-grid">
+            <div class="detail-label"><strong>Total Amount:</strong></div>
+            <div class="detail-value"><strong>{{ gr.total_amount | format_currency }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<div>
+    <a href="{{ url_for('goods_receipts') }}" class="btn btn-secondary">Back to Goods Receipts</a>
+</div>
+{% endblock %}

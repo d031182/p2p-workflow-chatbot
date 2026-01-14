@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2><i class="bi bi-graph-up"></i> Analytics Dashboard</h2>
+    <p class="text-muted">Risk Analysis & Outlier Detection</p>
+    <hr>
+
+    <!-- Risk Analysis Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Risk Analysis</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Risk Summary -->
+                        <div class="col-md-4">
+                            <h5>Risk Distribution</h5>
+                            <canvas id="riskChart" height="250"></canvas>
+                        </div>
+                        
+                        <!-- Risk by Amount -->
+                        <div class="col-md-8">
+                            <h5>Documents by Risk Level & Amount</h5>
+                            <canvas id="riskAmountChart" height="250"></canvas>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- High Risk Documents -->
+                    <h5>🔴 High & Critical Risk Documents</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Risk Level</th>
+                                    <th>Risk Score</th>
+                                    <th>Factors</th>
+                                </tr>
+                            </thead>
+                            <tbody id="highRiskTable">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outlier Analysis Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Outlier Detection</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Outlier Chart -->
+                        <div class="col-md-6">
+                            <h5>Purchase Orders - Amount Distribution</h5>
+                            <canvas id="poOutlierChart" height="300"></canvas>
+                            <p class="small text-muted mt-2">
+                                <strong>Z-Score Analysis:</strong> Points beyond ±2σ are outliers
+                            </p>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5>Invoices - Amount Distribution</h5>
+                            <canvas id="invoiceOutlierChart" height="300"></canvas>
+                            <p class="small text-muted mt-2">
+                                <strong>Box Plot:</strong> Shows median, quartiles, and outliers
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Statistical Summary -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>📊 Purchase Order Statistics</h5>
+                            <table class="table table-sm">
+                                <tr><th>Mean:</th><td id="poMean">-</td></tr>
+                                <tr><th>Median:</th><td id="poMedian">-</td></tr>
+                                <tr><th>Std Dev:</th><td id="poStdDev">-</td></tr>
+                                <tr><th>Outliers:</th><td id="poOutliers">-</td></tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>📊 Invoice Statistics</h5>
+                            <table class="table table-sm">
+                                <tr><th>Mean:</th><td id="invMean">-</td></tr>
+                                <tr><th>Median:</th><td id="invMedian">-</td></tr>
+                                <tr><th>Std Dev:</th><td id="invStdDev">-</td></tr>
+                                <tr><th>Outliers:</th><td id="invOutliers">-</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Outlier Details -->
+                    <h5>⚠️ Detected Outliers</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Z-Score</th>
+                                    <th>Deviation</th>
+                                    <th>Vendor</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outlierTable">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+<script>
+// Fetch analytics data
+fetch('/api/analytics/data')
+    .then(response => response.json())
+    .then(data => {
+        renderRiskCharts(data.risk);
+        renderOutlierCharts(data.outliers);
+        populateTables(data);
+    });
+
+function renderRiskCharts(riskData) {
+    // Risk Distribution Pie Chart
+    const riskCtx = document.getElementById('riskChart').getContext('2d');
+    new Chart(riskCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Low', 'Medium', 'High', 'Critical'],
+            datasets: [{
+                data: [
+                    riskData.counts.low,
+                    riskData.counts.medium,
+                    riskData.counts.high,
+                    riskData.counts.critical
+                ],
+                backgroundColor: ['#28a745', '#ffc107', '#fd7e14', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+    
+    // Risk by Amount Bar Chart
+    const amountCtx = document.getElementById('riskAmountChart').getContext('2d');
+    new Chart(amountCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Low', 'Medium', 'High', 'Critical'],
+            datasets: [{
+                label: 'Total Amount ($)',
+                data: [
+                    riskData.amounts.low,
+                    riskData.amounts.medium,
+                    riskData.amounts.high,
+                    riskData.amounts.critical
+                ],
+                backgroundColor: ['#28a745', '#ffc107', '#fd7e14', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: value => '$' + value.toLocaleString()
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderOutlierCharts(outlierData) {
+    // PO Outlier Scatter Chart
+    const poCtx = document.getElementById('poOutlierChart').getContext('2d');
+    new Chart(poCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: 'Normal',
+                    data: outlierData.po.normal,
+                    backgroundColor: '#28a745',
+                    pointRadius: 5
+                },
+                {
+                    label: 'Outliers',
+                    data: outlierData.po.outliers,
+                    backgroundColor: '#dc3545',
+                    pointRadius: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Document Index' } },
+                y: { 
+                    title: { display: true, text: 'Amount ($)' },
+                    ticks: {
+                        callback: value => '$' + value.toLocaleString()
+                    }
+                }
+            }
+        }
+    });
+    
+    // Invoice Outlier Box Plot (simulated with bar)
+    const invCtx = document.getElementById('invoiceOutlierChart').getContext('2d');
+    new Chart(invCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: 'Normal',
+                    data: outlierData.invoice.normal,
+                    backgroundColor: '#007bff',
+                    pointRadius: 5
+                },
+                {
+                    label: 'Outliers',
+                    data: outlierData.invoice.outliers,
+                    backgroundColor: '#dc3545',
+                    pointRadius: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Document Index' } },
+                y: { 
+                    title: { display: true, text: 'Amount ($)' },
+                    ticks: {
+                        callback: value => '$' + value.toLocaleString()
+                    }
+                }
+            }
+        }
+    });
+}
+
+function populateTables(data) {
+    // High Risk Table
+    const highRiskTable = document.getElementById('highRiskTable');
+    data.risk.highRiskDocs.forEach(doc => {
+        const row = `
+            <tr>
+                <td><strong>${doc.number}</strong></td>
+                <td><span class="badge bg-info">${doc.type}</span></td>
+                <td>$${doc.amount.toLocaleString()}</td>
+                <td><span class="badge bg-${doc.risk === 'CRITICAL' ? 'danger' : 'warning'}">${doc.risk}</span></td>
+                <td>${doc.score}/10</td>
+                <td><small>${doc.factors.join(', ')}</small></td>
+            </tr>
+        `;
+        highRiskTable.innerHTML += row;
+    });
+    
+    // Outlier Table
+    const outlierTable = document.getElementById('outlierTable');
+    data.outliers.all.forEach(outlier => {
+        const row = `
+            <tr>
+                <td><strong>${outlier.number}</strong></td>
+                <td><span class="badge bg-secondary">${outlier.type}</span></td>
+                <td>$${outlier.amount.toLocaleString()}</td>
+                <td><span class="badge bg-${outlier.z_score > 3 ? 'danger' : 'warning'}">${outlier.z_score}σ</span></td>
+                <td>$${outlier.deviation.toLocaleString()}</td>
+                <td>${outlier.vendor}</td>
+            </tr>
+        `;
+        outlierTable.innerHTML += row;
+    });
+    
+    // Statistics
+    document.getElementById('poMean').textContent = '$' + data.outliers.po_stats.mean.toLocaleString();
+    document.getElementById('poMedian').textContent = '$' + data.outliers.po_stats.median.toLocaleString();
+    document.getElementById('poStdDev').textContent = '$' + data.outliers.po_stats.std_dev.toLocaleString();
+    document.getElementById('poOutliers').textContent = data.outliers.po_stats.outlier_count;
+    
+    document.getElementById('invMean').textContent = '$' + data.outliers.inv_stats.mean.toLocaleString();
+    document.getElementById('invMedian').textContent = '$' + data.outliers.inv_stats.median.toLocaleString();
+    document.getElementById('invStdDev').textContent = '$' + data.outliers.inv_stats.std_dev.toLocaleString();
+    document.getElementById('invOutliers').textContent = data.outliers.inv_stats.outlier_count;
+}
+</script>
+{% endblock %}
