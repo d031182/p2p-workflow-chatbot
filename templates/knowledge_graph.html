@@ -1,0 +1,568 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Graph - P2P Workflow{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">
+        <i class="fas fa-project-diagram"></i> Knowledge Graph Visualization
+    </h1>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Interactive Graph:</strong> Explore the relationships between entities in the P2P workflow. 
+                Click and drag nodes to rearrange, hover for details, and use the legend to filter by type.
+            </div>
+        </div>
+    </div>
+
+    <!-- Graph Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Total Nodes</h5>
+                    <h2 id="stat-nodes" class="text-primary">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Total Edges</h5>
+                    <h2 id="stat-edges" class="text-success">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Vendors</h5>
+                    <h2 id="stat-vendors" class="text-info">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Transactions</h5>
+                    <h2 id="stat-transactions" class="text-warning">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graph Visualization -->
+    <div class="row">
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sitemap"></i> Network Graph
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="graph-container" style="height: 600px; border: 1px solid #dee2e6;"></div>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group" role="group">
+                        <button id="btn-fit" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-compress-arrows-alt"></i> Fit View
+                        </button>
+                        <button id="btn-physics" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-pause"></i> Toggle Physics
+                        </button>
+                        <button id="btn-reload" class="btn btn-sm btn-outline-info">
+                            <i class="fas fa-sync-alt"></i> Reload Graph
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <!-- Legend -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-palette"></i> Legend
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="legend-container">
+                        <div class="legend-item mb-2">
+                            <span class="legend-color" style="background-color: #FF6B6B;"></span>
+                            <span>Vendor</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="legend-color" style="background-color: #4ECDC4;"></span>
+                            <span>Purchase Order</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="legend-color" style="background-color: #95E1D3;"></span>
+                            <span>Goods Receipt</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="legend-color" style="background-color: #F38181;"></span>
+                            <span>Invoice</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="legend-color" style="background-color: #AA96DA;"></span>
+                            <span>Approver</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="legend-color" style="background-color: #FCBAD3;"></span>
+                            <span>Department</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="legend-color" style="background-color: #FFFFD2;"></span>
+                            <span>Line Item</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <span class="legend-color" style="background-color: #A8D8EA;"></span>
+                            <span>Category</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Node Details -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Selected Node
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="node-details">
+                        <p class="text-muted">Click on a node to see details</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insights Section -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb"></i> KG Reasoning Insights
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="insightsTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="fraud-tab" data-bs-toggle="tab" href="#fraud" role="tab">
+                                <i class="fas fa-exclamation-triangle"></i> Fraud Detection
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="risk-tab" data-bs-toggle="tab" href="#risk" role="tab">
+                                <i class="fas fa-shield-alt"></i> Vendor Risks
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="delays-tab" data-bs-toggle="tab" href="#delays" role="tab">
+                                <i class="fas fa-clock"></i> Delay Predictions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="consolidation-tab" data-bs-toggle="tab" href="#consolidation" role="tab">
+                                <i class="fas fa-compress"></i> Consolidation
+                            </a>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-3" id="insightsTabContent">
+                        <div class="tab-pane fade show active" id="fraud" role="tabpanel">
+                            <div id="fraud-content">
+                                <p class="text-muted">Loading fraud detection results...</p>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="risk" role="tabpanel">
+                            <div id="risk-content">
+                                <p class="text-muted">Loading vendor risk assessment...</p>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="delays" role="tabpanel">
+                            <div id="delays-content">
+                                <p class="text-muted">Loading approval delay predictions...</p>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="consolidation" role="tabpanel">
+                            <div id="consolidation-content">
+                                <p class="text-muted">Loading consolidation opportunities...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.legend-color {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 10px;
+    border: 2px solid #333;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+}
+
+#node-details {
+    font-size: 0.9rem;
+}
+
+#node-details .property {
+    margin-bottom: 5px;
+}
+
+#node-details .property-label {
+    font-weight: bold;
+    color: #666;
+}
+</style>
+
+<script src="https://unpkg.com/vis-network@9.1.2/standalone/umd/vis-network.min.js"></script>
+
+<script>
+let network = null;
+let graphData = null;
+let physicsEnabled = true;
+
+// Color mapping for node types
+const nodeColors = {
+    'Vendor': '#FF6B6B',
+    'PurchaseOrder': '#4ECDC4',
+    'GoodsReceipt': '#95E1D3',
+    'Invoice': '#F38181',
+    'Approver': '#AA96DA',
+    'Department': '#FCBAD3',
+    'LineItem': '#FFFFD2',
+    'Category': '#A8D8EA'
+};
+
+// Load and display graph
+async function loadGraph() {
+    try {
+        const response = await fetch('/api/knowledge-graph/data');
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error loading graph: ' + data.error);
+            return;
+        }
+        
+        graphData = data;
+        
+        // Update statistics
+        document.getElementById('stat-nodes').textContent = data.stats.total_nodes;
+        document.getElementById('stat-edges').textContent = data.stats.total_edges;
+        document.getElementById('stat-vendors').textContent = data.stats.node_types.Vendor || 0;
+        document.getElementById('stat-transactions').textContent = 
+            (data.stats.node_types.PurchaseOrder || 0) + 
+            (data.stats.node_types.Invoice || 0);
+        
+        // Prepare nodes with colors
+        const nodes = data.nodes.map(node => ({
+            id: node.id,
+            label: node.label,
+            title: node.title,
+            group: node.group,
+            color: nodeColors[node.type] || '#999',
+            font: { color: '#000' },
+            shape: 'dot',
+            size: 20,
+            nodeData: node
+        }));
+        
+        // Create network
+        const container = document.getElementById('graph-container');
+        const graphDataVis = {
+            nodes: new vis.DataSet(nodes),
+            edges: new vis.DataSet(data.edges)
+        };
+        
+        const options = {
+            physics: {
+                enabled: true,
+                stabilization: {
+                    iterations: 200
+                },
+                barnesHut: {
+                    gravitationalConstant: -30000,
+                    springConstant: 0.001,
+                    springLength: 200
+                }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 100,
+                zoomView: true,
+                dragView: true
+            },
+            edges: {
+                arrows: {
+                    to: { enabled: true, scaleFactor: 0.5 }
+                },
+                color: { color: '#848484', hover: '#000' },
+                font: { size: 10, align: 'middle' },
+                smooth: {
+                    type: 'continuous'
+                }
+            },
+            nodes: {
+                borderWidth: 2,
+                borderWidthSelected: 4,
+                font: {
+                    size: 12,
+                    face: 'Arial'
+                }
+            }
+        };
+        
+        network = new vis.Network(container, graphDataVis, options);
+        
+        // Handle node selection
+        network.on('click', function(params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const node = nodes.find(n => n.id === nodeId);
+                displayNodeDetails(node.nodeData);
+            }
+        });
+        
+        // Fit the network after stabilization
+        network.once('stabilizationIterationsDone', function() {
+            network.fit();
+        });
+        
+    } catch (error) {
+        console.error('Error loading graph:', error);
+        alert('Failed to load knowledge graph');
+    }
+}
+
+// Display node details
+function displayNodeDetails(node) {
+    const detailsDiv = document.getElementById('node-details');
+    
+    let html = `
+        <h6 class="mb-3">${node.type}</h6>
+        <div class="property">
+            <span class="property-label">ID:</span> ${node.id}
+        </div>
+        <div class="property">
+            <span class="property-label">Name:</span> ${node.label}
+        </div>
+    `;
+    
+    // Add type-specific properties
+    if (node.properties && Object.keys(node.properties).length > 0) {
+        html += '<hr>';
+        for (const [key, value] of Object.entries(node.properties)) {
+            html += `
+                <div class="property">
+                    <span class="property-label">${key}:</span> ${value}
+                </div>
+            `;
+        }
+    }
+    
+    detailsDiv.innerHTML = html;
+}
+
+// Load insights
+async function loadInsights() {
+    try {
+        const response = await fetch('/api/knowledge-graph/insights');
+        const insights = await response.json();
+        
+        if (insights.error) {
+            console.error('Error loading insights:', insights.error);
+            return;
+        }
+        
+        // Display fraud patterns
+        displayFraudPatterns(insights.fraud_patterns);
+        
+        // Display vendor risks
+        displayVendorRisks(insights.vendor_risks);
+        
+        // Display delay predictions
+        displayDelayPredictions(insights.approval_delays);
+        
+        // Display consolidation opportunities
+        displayConsolidation(insights.consolidation_opportunities);
+        
+    } catch (error) {
+        console.error('Error loading insights:', error);
+    }
+}
+
+function displayFraudPatterns(patterns) {
+    const container = document.getElementById('fraud-content');
+    
+    if (patterns.length === 0) {
+        container.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> No suspicious patterns detected</div>';
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    patterns.forEach(pattern => {
+        const severity = pattern.severity === 'HIGH' ? 'danger' : 'warning';
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <h6 class="mb-1">${pattern.type}</h6>
+                    <span class="badge bg-${severity}">${pattern.severity}</span>
+                </div>
+                <p class="mb-1"><strong>Vendor:</strong> ${pattern.vendor}</p>
+                <small class="text-muted">${pattern.reason}</small>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function displayVendorRisks(risks) {
+    const container = document.getElementById('risk-content');
+    
+    if (risks.length === 0) {
+        container.innerHTML = '<p class="text-muted">No vendor risk data available</p>';
+        return;
+    }
+    
+    // Sort by risk score
+    risks.sort((a, b) => b.risk_score - a.risk_score);
+    
+    let html = '<div class="list-group">';
+    risks.forEach(risk => {
+        const levelColor = risk.risk_level === 'HIGH' ? 'danger' : 
+                          risk.risk_level === 'MEDIUM' ? 'warning' : 'success';
+        const emoji = risk.risk_level === 'HIGH' ? '🔴' : 
+                     risk.risk_level === 'MEDIUM' ? '🟡' : '🟢';
+        
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <h6 class="mb-1">${emoji} ${risk.vendor_name}</h6>
+                    <span class="badge bg-${levelColor}">${risk.risk_level}</span>
+                </div>
+                <p class="mb-1"><strong>Risk Score:</strong> ${risk.risk_score}</p>
+                <p class="mb-1"><strong>Transactions:</strong> ${risk.transaction_count}</p>
+                ${risk.factors.length > 0 ? `
+                    <small class="text-muted">
+                        <strong>Factors:</strong>
+                        <ul class="mb-0 mt-1">
+                            ${risk.factors.map(f => `<li>${f}</li>`).join('')}
+                        </ul>
+                    </small>
+                ` : ''}
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function displayDelayPredictions(predictions) {
+    const container = document.getElementById('delays-content');
+    
+    if (predictions.length === 0) {
+        container.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> No documents at risk of delays</div>';
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    predictions.forEach(pred => {
+        const riskColor = pred.risk_level === 'HIGH' ? 'danger' : 'warning';
+        const emoji = pred.risk_level === 'HIGH' ? '🔴' : '🟡';
+        
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <h6 class="mb-1">${emoji} ${pred.document_type}</h6>
+                    <span class="badge bg-${riskColor}">${pred.risk_level}</span>
+                </div>
+                <p class="mb-1"><strong>Document:</strong> ${pred.document_id}</p>
+                <p class="mb-1"><strong>Amount:</strong> $${pred.amount.toLocaleString()}</p>
+                <p class="mb-1"><strong>Pending Approvers:</strong> ${pred.pending_approvers}</p>
+                <small class="text-muted">
+                    <strong>Risk Factors:</strong>
+                    <ul class="mb-0 mt-1">
+                        ${pred.factors.map(f => `<li>${f}</li>`).join('')}
+                    </ul>
+                </small>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function displayConsolidation(opportunities) {
+    const container = document.getElementById('consolidation-content');
+    
+    if (opportunities.length === 0) {
+        container.innerHTML = '<p class="text-muted">No consolidation opportunities found</p>';
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    opportunities.forEach(opp => {
+        html += `
+            <div class="list-group-item">
+                <h6 class="mb-2">${opp.category}</h6>
+                <p class="mb-1"><strong>Current Vendors:</strong> ${opp.vendor_count}</p>
+                <p class="mb-1"><strong>Total Spend:</strong> $${opp.total_spend.toLocaleString()}</p>
+                <div class="alert alert-info mb-0 mt-2">
+                    <i class="fas fa-lightbulb"></i> ${opp.recommendation}
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Button handlers
+document.getElementById('btn-fit').addEventListener('click', function() {
+    if (network) {
+        network.fit();
+    }
+});
+
+document.getElementById('btn-physics').addEventListener('click', function() {
+    if (network) {
+        physicsEnabled = !physicsEnabled;
+        network.setOptions({ physics: { enabled: physicsEnabled } });
+        this.innerHTML = physicsEnabled ? 
+            '<i class="fas fa-pause"></i> Toggle Physics' : 
+            '<i class="fas fa-play"></i> Toggle Physics';
+    }
+});
+
+document.getElementById('btn-reload').addEventListener('click', function() {
+    loadGraph();
+    loadInsights();
+});
+
+// Load on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadGraph();
+    loadInsights();
+});
+</script>
+{% endblock %}

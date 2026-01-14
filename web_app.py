@@ -135,6 +135,139 @@ def api_analytics_data():
     return jsonify(data)
 
 
+@app.route('/knowledge-graph')
+def knowledge_graph():
+    """Show knowledge graph visualization"""
+    return render_template('knowledge_graph.html')
+
+
+@app.route('/api/knowledge-graph/data')
+def api_knowledge_graph_data():
+    """API endpoint for knowledge graph data"""
+    from kg_reasoning import P2PKnowledgeGraph
+    
+    try:
+        # Build knowledge graph
+        kg = P2PKnowledgeGraph()
+        kg.build_graph_from_workflow(workflow)
+        
+        # Convert graph to JSON format for visualization
+        nodes = []
+        edges = []
+        
+        # Add nodes with their properties
+        for node_id, node_data in kg.graph.nodes(data=True):
+            node_type = node_data.get('type', 'Unknown')
+            node_name = node_data.get('name', node_id)
+            
+            # Determine node properties for visualization
+            node_info = {
+                'id': node_id,
+                'label': node_name if len(node_name) < 30 else node_name[:27] + '...',
+                'type': node_type,
+                'group': node_type,
+                'title': f"{node_type}: {node_name}",  # Tooltip
+                'properties': {}
+            }
+            
+            # Add relevant properties based on type
+            if node_type == 'PurchaseOrder':
+                node_info['properties'] = {
+                    'amount': f"${node_data.get('amount', 0):,.2f}",
+                    'status': node_data.get('status', 'Unknown'),
+                    'blocked': node_data.get('blocked', False)
+                }
+            elif node_type == 'Invoice':
+                node_info['properties'] = {
+                    'amount': f"${node_data.get('amount', 0):,.2f}",
+                    'status': node_data.get('status', 'Unknown'),
+                    'blocked': node_data.get('blocked', False)
+                }
+            elif node_type == 'Vendor':
+                node_info['properties'] = {
+                    'risk_score': node_data.get('risk_score', 0),
+                    'transaction_count': node_data.get('transaction_count', 0)
+                }
+            elif node_type == 'GoodsReceipt':
+                node_info['properties'] = {
+                    'status': node_data.get('status', 'Unknown'),
+                    'quality_checked': node_data.get('quality_checked', False)
+                }
+            
+            nodes.append(node_info)
+        
+        # Add edges with their relationships
+        for source, target, edge_data in kg.graph.edges(data=True):
+            relation = edge_data.get('relation', 'connected_to')
+            edges.append({
+                'from': source,
+                'to': target,
+                'label': relation,
+                'title': relation,  # Tooltip
+                'arrows': 'to'
+            })
+        
+        # Get graph statistics
+        stats = {
+            'total_nodes': len(nodes),
+            'total_edges': len(edges),
+            'node_types': {}
+        }
+        
+        # Count nodes by type
+        for node in nodes:
+            node_type = node['type']
+            stats['node_types'][node_type] = stats['node_types'].get(node_type, 0) + 1
+        
+        return jsonify({
+            'nodes': nodes,
+            'edges': edges,
+            'stats': stats
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/knowledge-graph/insights')
+def api_knowledge_graph_insights():
+    """API endpoint for knowledge graph insights"""
+    from kg_reasoning import P2PKnowledgeGraph
+    
+    try:
+        # Build knowledge graph
+        kg = P2PKnowledgeGraph()
+        kg.build_graph_from_workflow(workflow)
+        
+        # Generate comprehensive report
+        report = kg.generate_comprehensive_report(workflow)
+        
+        # Format for JSON response
+        response = {
+            'fraud_patterns': report['fraud_patterns'],
+            'vendor_risks': [
+                {
+                    'vendor_id': vid,
+                    'vendor_name': data['vendor_name'],
+                    'risk_score': data['risk_score'],
+                    'risk_level': data['risk_level'],
+                    'factors': data['factors'],
+                    'transaction_count': data['transaction_count']
+                }
+                for vid, data in report['vendor_risks'].items()
+            ],
+            'three_way_match_issues': report['three_way_match_issues'],
+            'approval_delays': report['approval_delays'],
+            'consolidation_opportunities': report['consolidation_opportunities'],
+            'graph_stats': report['graph_stats']
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/regenerate-data', methods=['POST'])
 def regenerate_data():
     """Regenerate sample data"""

@@ -138,9 +138,13 @@ class P2PChatbotRAG(P2PChatbot):
         # Try rule-based first
         rule_response = super().process_message(user_message)
         
-        # If rule-based has a good answer, optionally enhance with LLM
+        # If rule-based has a good answer, check if it's HTML (visual reasoning)
         if "I'm not sure" not in rule_response['message']:
-            # Rule-based worked, optionally enhance
+            # If response contains HTML formatting, return it as-is (don't enhance)
+            if rule_response['message'].strip().startswith('<'):
+                return rule_response
+            
+            # Rule-based worked with plain text, optionally enhance with LLM
             if len(rule_response['message']) > 100:
                 return self._enhance_with_rag(user_message, rule_response)
             return rule_response

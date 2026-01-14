@@ -297,16 +297,20 @@ def generate_large_sample_data() -> P2PWorkflow:
             policy = workflow.get_applicable_policy(invoice.total_amount)
             if policy and len(policy.required_approvers) > 0:
                 workflow.approve_invoice(invoice.id, policy.required_approvers[0], "First level approved")
-        elif idx < 24:  # 1 blocked
+        elif idx < 24:  # 1 blocked - Pricing discrepancy
             workflow.block_invoice(invoice.id, "Pricing discrepancy - vendor contacted")
+        elif idx < 25:  # 1 blocked - Three-way match failure
+            workflow.block_invoice(invoice.id, "Three-way match failure - quantity mismatch between PO, GR, and invoice")
+        elif idx < 26:  # 1 blocked - Missing documentation
+            workflow.block_invoice(invoice.id, "Missing documentation - awaiting signed delivery receipt from vendor")
         # Rest remain in draft or pending
     
     print(f"✓ Processed {len(invoice_list)} invoices:")
     print(f"  - Paid: 15")
     print(f"  - Approved (Pending Payment): 5")
     print(f"  - Pending Approval: 3")
-    print(f"  - Blocked: 1")
-    print(f"  - Draft: {len(invoice_list) - 24}")
+    print(f"  - Blocked: 3 (Pricing, Three-way match, Missing docs)")
+    print(f"  - Draft: {len(invoice_list) - 26}")
     
     # Summary
     print("\n" + "="*80)

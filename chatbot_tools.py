@@ -128,6 +128,22 @@ class P2PChatbotWithTools(P2PChatbot):
                     },
                     "required": ["document_id"]
                 }
+            },
+            
+            "explain_blocked_document": {
+                "name": "explain_blocked_document",
+                "description": "Use Knowledge Graph reasoning to explain why a document is blocked and provide actionable insights",
+                "function": self._tool_explain_blocked_document,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "document_id": {
+                            "type": "string",
+                            "description": "Document ID to explain (PO, GR, or Invoice ID)"
+                        }
+                    },
+                    "required": ["document_id"]
+                }
             }
         }
     
@@ -368,6 +384,147 @@ class P2PChatbotWithTools(P2PChatbot):
             "recommendation": self._get_risk_recommendation(risk_level)
         }
     
+    def _tool_explain_blocked_document(self, document_id: str) -> Dict:
+        """Use Knowledge Graph reasoning to explain why a document is blocked"""
+        try:
+            from kg_reasoning import P2PKnowledgeGraph
+            
+            # Find the document
+            doc = None
+            doc_type = None
+            
+            if document_id in self.workflow.purchase_orders:
+                doc = self.workflow.purchase_orders[document_id]
+                doc_type = "Purchase Order"
+            elif document_id in self.workflow.invoices:
+                doc = self.workflow.invoices[document_id]
+                doc_type = "Invoice"
+            elif document_id in self.workflow.goods_receipts:
+                doc = self.workflow.goods_receipts[document_id]
+                doc_type = "Goods Receipt"
+            
+            if not doc:
+                return {"error": "Document not found"}
+            
+            # Check if document is actually blocked
+            is_blocked = doc.status.value == "Blocked" if hasattr(doc, 'status') else False
+            
+            if not is_blocked:
+                return {
+                    "document_id": document_id,
+                    "doc_type": doc_type,
+                    "is_blocked": False,
+                    "status": doc.status.value,
+                    "message": f"This {doc_type} is not blocked. Current status: {doc.status.value}"
+                }
+            
+            # Build KG for analysis
+            kg = P2PKnowledgeGraph()
+            kg.build_graph_from_workflow(self.workflow)
+            
+            # Get comprehensive insights
+            vendor_risks = kg.calculate_vendor_risk_scores()
+            fraud_patterns = kg.detect_fraud_patterns()
+            match_issues = kg.detect_three_way_match_issues()
+            
+            # Analyze why this document is blocked
+            reasons = []
+            recommendations = []
+            
+            # Direct blocking reason
+            if hasattr(doc, 'blocked_reason') and doc.blocked_reason:
+                reasons.append({
+                    "category": "Direct Reason",
+                    "description": doc.blocked_reason,
+                    "severity": "HIGH"
+                })
+            
+            # Check vendor risk
+            vendor_id = getattr(doc, 'vendor_id', None)
+            if vendor_id and vendor_id in vendor_risks:
+                risk_info = vendor_risks[vendor_id]
+                if risk_info['risk_level'] in ['HIGH', 'MEDIUM']:
+                    reasons.append({
+                        "category": "Vendor Risk",
+                        "description": f"Vendor {risk_info['vendor_name']} has {risk_info['risk_level']} risk (score: {risk_info['risk_score']})",
+                        "severity": risk_info['risk_level'],
+                        "factors": risk_info['factors']
+                    })
+                    recommendations.append(f"Review vendor {risk_info['vendor_name']}'s transaction history before unblocking")
+            
+            # Check for fraud patterns
+            for pattern in fraud_patterns:
+                if pattern.get('vendor') == getattr(doc, 'vendor_name', None):
+                    reasons.append({
+                        "category": "Fraud Detection",
+                        "description": f"{pattern['type']}: {pattern['reason']}",
+                        "severity": pattern['severity']
+                    })
+                    recommendations.append("Conduct thorough fraud investigation before proceeding")
+            
+            # Check three-way match issues (for invoices)
+            if doc_type == "Invoice":
+                for issue in match_issues:
+                    if issue.get('invoice_id') == document_id:
+                        reasons.append({
+                            "category": "Three-Way Match Issue",
+                            "description": issue['issue'],
+                            "severity": issue['severity']
+                        })
+                        recommendations.append("Verify PO-GR-Invoice matching before unblocking")
+            
+            # Amount-based analysis
+            if doc.total_amount > 50000:
+                reasons.append({
+                    "category": "High Value Transaction",
+                    "description": f"Amount ${doc.total_amount:,.2f} exceeds standard threshold",
+                    "severity": "MEDIUM"
+                })
+                recommendations.append("Obtain executive approval for high-value transaction")
+            
+            # If no specific reasons found, provide generic analysis
+            if not reasons:
+                reasons.append({
+                    "category": "Manual Block",
+                    "description": "Document was manually blocked. No automated detection triggered.",
+                    "severity": "MEDIUM"
+                })
+                recommendations.append("Contact the user who blocked this document for details")
+            
+            # Add general recommendations
+            recommendations.append(f"Review all related documents in the workflow")
+            if vendor_id:
+                recommendations.append(f"Check other documents from this vendor")
+            
+            return {
+                "document_id": document_id,
+                "doc_type": doc_type,
+                "is_blocked": True,
+                "status": doc.status.value,
+                "amount": doc.total_amount,
+                "vendor": getattr(doc, 'vendor_name', 'N/A'),
+                "reasons": reasons,
+                "recommendations": recommendations,
+                "insight": self._generate_insight(reasons, doc_type)
+            }
+            
+        except Exception as e:
+            return {"error": f"Failed to analyze document: {str(e)}"}
+    
+    def _generate_insight(self, reasons: List[Dict], doc_type: str) -> str:
+        """Generate human-readable insight from reasons"""
+        if not reasons:
+            return f"This {doc_type} appears to be manually blocked without specific automated triggers."
+        
+        high_severity = [r for r in reasons if r.get('severity') == 'HIGH']
+        
+        if high_severity:
+            main_reason = high_severity[0]
+            return f"Primary concern: {main_reason['description']}. This is a high-priority issue requiring immediate attention."
+        
+        main_reason = reasons[0]
+        return f"Main issue: {main_reason['description']}. Review and resolve before unblocking."
+    
     def _get_risk_recommendation(self, risk_level: str) -> str:
         """Get recommendation based on risk level"""
         recommendations = {
@@ -418,6 +575,15 @@ class P2PChatbotWithTools(P2PChatbot):
                 if '-' in word:  # Likely a document ID
                     result = self._tool_risk_assessment(word.upper())
                     return {'message': self._format_risk_result(result)}
+        
+        # Check for blocked document explanation requests
+        if any(keyword in message for keyword in ['blocked', 'why block', 'explain block', 'why is', 'what happened']):
+            # Try to extract document ID from message
+            words = message.split()
+            for word in words:
+                if '-' in word:  # Likely a document ID
+                    result = self._tool_explain_blocked_document(word.upper())
+                    return {'message': self._format_blocked_explanation(result)}
         
         # Fall back to regular chatbot
         return super().process_message(user_message)
@@ -637,6 +803,94 @@ class P2PChatbotWithTools(P2PChatbot):
         response += f"**Recommendation:**\n{result['recommendation']}"
         
         return response
+    
+    def _format_blocked_explanation(self, result: Dict) -> str:
+        """Format blocked document explanation using KG reasoning"""
+        if "error" in result:
+            return f"❌ {result['error']}"
+        
+        # If not blocked
+        if not result.get('is_blocked', False):
+            return f"ℹ️ {result.get('message', 'Document is not blocked')}"
+        
+        # Build comprehensive explanation
+        html = f"""
+<div style="background: white; padding: 20px; border-radius: 8px; border: 2px solid #dc3545;">
+    <h5 style="color: #dc3545;">
+        <i class="fas fa-ban"></i> Blocked Document Analysis
+    </h5>
+    
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
+        <div style="margin-bottom: 10px;"><strong>Document Type:</strong> {result['doc_type']}</div>
+        <div style="margin-bottom: 10px;"><strong>Document ID:</strong> <code>{result['document_id']}</code></div>
+        <div style="margin-bottom: 10px;"><strong>Status:</strong> <span style="color: #dc3545; font-weight: bold;">{result['status']}</span></div>
+        <div style="margin-bottom: 10px;"><strong>Amount:</strong> ${result['amount']:,.2f}</div>
+        <div><strong>Vendor:</strong> {result['vendor']}</div>
+    </div>
+    
+    <div style="background: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107; margin: 15px 0;">
+        <strong>🔍 KG Reasoning Insight:</strong>
+        <p style="margin: 10px 0 0 0;">{result['insight']}</p>
+    </div>
+    
+    <h6 style="margin-top: 20px; color: #dc3545;">
+        <i class="fas fa-exclamation-triangle"></i> Blocking Reasons:
+    </h6>
+    <div style="margin: 10px 0;">
+"""
+        
+        for i, reason in enumerate(result.get('reasons', []), 1):
+            severity_color = {
+                'HIGH': '#dc3545',
+                'MEDIUM': '#ffc107',
+                'LOW': '#28a745'
+            }.get(reason.get('severity', 'MEDIUM'), '#6c757d')
+            
+            html += f"""
+        <div style="background: #f8f9fa; padding: 12px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid {severity_color};">
+            <div style="display: flex; justify-content: between; align-items: center;">
+                <strong>{i}. {reason['category']}</strong>
+                <span style="background: {severity_color}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 0.8em; margin-left: 10px;">
+                    {reason.get('severity', 'MEDIUM')}
+                </span>
+            </div>
+            <p style="margin: 8px 0 0 0;">{reason['description']}</p>
+"""
+            if 'factors' in reason and reason['factors']:
+                html += """
+            <div style="margin-top: 8px; font-size: 0.9em;">
+                <strong>Contributing Factors:</strong>
+                <ul style="margin: 5px 0 0 20px;">
+"""
+                for factor in reason['factors']:
+                    html += f"<li>{factor}</li>"
+                html += "</ul></div>"
+            
+            html += "</div>"
+        
+        html += """
+    </div>
+    
+    <h6 style="margin-top: 20px; color: #0d6efd;">
+        <i class="fas fa-lightbulb"></i> Recommended Actions:
+    </h6>
+    <ol style="margin: 10px 0;">
+"""
+        
+        for rec in result.get('recommendations', []):
+            html += f"<li style='margin-bottom: 8px;'>{rec}</li>"
+        
+        html += """
+    </ol>
+    
+    <div style="background: #d1ecf1; padding: 12px; border-radius: 5px; border-left: 4px solid #0c5460; margin-top: 20px;">
+        <strong>💡 Pro Tip:</strong> Visit the <a href="/knowledge-graph" target="_blank">Knowledge Graph</a> tab 
+        to see visual relationships and get more context about this document's connections.
+    </div>
+</div>
+"""
+        
+        return html
     
     def _init_openai(self):
         """Initialize OpenAI with function calling"""

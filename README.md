@@ -20,6 +20,16 @@ A comprehensive Python application demonstrating a complete Purchase-to-Pay busi
 - Payment tracking and overdue invoice detection
 - Comprehensive financial reporting
 
+### 🆕 Knowledge Graph Reasoning (Advanced AI)
+- **Fraud Detection**: Automatically detect suspicious patterns and anomalies
+- **Vendor Risk Assessment**: Calculate risk scores based on transaction history
+- **Smart Recommendations**: AI-powered vendor recommendations by category
+- **Three-Way Match Validation**: Intelligent validation of PO-GR-Invoice relationships
+- **Approval Delay Prediction**: Predict which documents might face delays
+- **Consolidation Opportunities**: Identify opportunities to optimize vendor base
+
+See [KG_REASONING_GUIDE.md](KG_REASONING_GUIDE.md) for detailed documentation.
+
 ## Project Structure
 
 ```

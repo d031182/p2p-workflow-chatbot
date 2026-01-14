@@ -48,9 +48,18 @@ class P2PChatbotUltimate(P2PChatbotRAG):
     
     def process_message(self, user_message: str) -> dict:
         """
-        Process message: Try tools first (if enabled), then RAG/rule-based
+        Process message: Try tools first (if enabled), check for blocked doc questions, then RAG/rule-based
         """
         message = user_message.lower().strip()
+        
+        # Check for blocked document explanation requests FIRST (before tools)
+        if 'blocked' in message and ('why' in message or 'explain' in message or 'what' in message):
+            # This is asking about blocked documents - use KG reasoning
+            kg_response = self._handle_why_question(user_message)
+            if kg_response and 'message' in kg_response:
+                # Check if KG reasoning provided a good answer
+                if not any(x in kg_response['message'] for x in ['not found', 'no blocked', 'not blocked']):
+                    return kg_response
         
         # If tools are enabled, check if message requires a tool
         if self.tools_enabled:
@@ -680,75 +689,79 @@ class P2PChatbotUltimate(P2PChatbotRAG):
         return html
     
     def _handle_why_question(self, message: str) -> dict:
-        """Override to provide HTML-formatted 'why' responses"""
-        # Extract document number
-        words = message.split()
-        doc_num = None
+        """Override to use KG reasoning for blocked documents"""
+        from chatbot_tools import P2PChatbotWithTools
         
-        for word in words:
-            if 'PO-' in word.upper() or 'GR-' in word.upper() or 'INV-' in word.upper():
-                doc_num = word.upper()
-                break
-        
-        # If no document number specified but asking about blocked invoices/POs/GRs
-        if not doc_num and 'blocked' in message:
-            # Check what type of document they're asking about
-            if 'invoice' in message:
-                # Get all blocked invoices and show analysis for the first one
-                blocked = self.workflow.get_blocked_documents()
-                if blocked['invoices']:
-                    inv = blocked['invoices'][0]
-                    return {'message': self._format_blocked_invoice_analysis(inv)}
-                else:
-                    return {'message': "✅ No blocked invoices found."}
-            elif 'po' in message or 'purchase order' in message:
-                blocked = self.workflow.get_blocked_documents()
-                if blocked['purchase_orders']:
-                    po = blocked['purchase_orders'][0]
-                    return {'message': self._format_blocked_po_analysis(po)}
-                else:
-                    return {'message': "✅ No blocked purchase orders found."}
-            elif 'gr' in message or 'goods receipt' in message:
-                blocked = self.workflow.get_blocked_documents()
-                if blocked['goods_receipts']:
-                    gr = blocked['goods_receipts'][0]
-                    return {'message': self._format_blocked_gr_analysis(gr)}
-                else:
-                    return {'message': "✅ No blocked goods receipts found."}
+        # Check if asking about blocked documents
+        if 'blocked' in message.lower():
+            # Extract document ID
+            words = message.split()
+            doc_id = None
+            
+            for word in words:
+                word_upper = word.upper()
+                # Look for document IDs (they contain hyphens)
+                if '-' in word or any(prefix in word_upper for prefix in ['INV-', 'PO-', 'GR-', 'INV', 'PO', 'GR']):
+                    # Try to find the exact document
+                    # Check invoices
+                    for inv in self.workflow.invoices.values():
+                        if word_upper in inv.invoice_number or word_upper in inv.id:
+                            doc_id = inv.id
+                            break
+                    if doc_id:
+                        break
+                    
+                    # Check POs
+                    for po in self.workflow.purchase_orders.values():
+                        if word_upper in po.po_number or word_upper in po.id:
+                            doc_id = po.id
+                            break
+                    if doc_id:
+                        break
+                    
+                    # Check GRs
+                    for gr in self.workflow.goods_receipts.values():
+                        if word_upper in gr.gr_number or word_upper in gr.id:
+                            doc_id = gr.id
+                            break
+                    if doc_id:
+                        break
+            
+            # If we found a document ID, use KG reasoning tool
+            if doc_id:
+                # Create temporary tool chatbot to access the explain function
+                tool_bot = P2PChatbotWithTools(self.workflow)
+                result = tool_bot._tool_explain_blocked_document(doc_id)
+                return {'message': tool_bot._format_blocked_explanation(result)}
             else:
-                return {'message': "Please specify which type of document (invoice, PO, or GR) or provide a document number (e.g., 'why is invoice INV-12345 blocked?')"}
-        
-        if not doc_num:
-            return {'message': "Please specify a document number (e.g., 'why is invoice INV-12345 blocked?')"}
-        
-        # Check if asking about blocked status
-        if 'blocked' in message:
-            # Search for the document - check invoices first
-            for inv in self.workflow.invoices.values():
-                if doc_num in inv.invoice_number:
-                    if inv.status.value == "Blocked":
-                        # Format with rich HTML analysis
-                        return {'message': self._format_blocked_invoice_analysis(inv)}
-                    else:
-                        return {'message': f"Invoice {inv.invoice_number} is not blocked. Current status: {inv.status.value}"}
-            
-            # Check POs
-            for po in self.workflow.purchase_orders.values():
-                if doc_num in po.po_number:
-                    if po.status.value == "Blocked":
-                        return {'message': self._format_blocked_po_analysis(po)}
-                    else:
-                        return {'message': f"Purchase Order {po.po_number} is not blocked. Current status: {po.status.value}"}
-            
-            # Check GRs
-            for gr in self.workflow.goods_receipts.values():
-                if doc_num in gr.gr_number:
-                    if gr.status.value == "Blocked":
-                        return {'message': self._format_blocked_gr_analysis(gr)}
-                    else:
-                        return {'message': f"Goods Receipt {gr.gr_number} is not blocked. Current status: {gr.status.value}"}
-            
-            return {'message': f"❌ Document **{doc_num}** not found. Please check the number and try again."}
+                # No specific document found, show all blocked documents
+                blocked = self.workflow.get_blocked_documents()
+                if any(blocked.values()):
+                    response = "🚫 **Blocked Documents Found:**\n\n"
+                    
+                    if blocked['invoices']:
+                        response += f"**Invoices ({len(blocked['invoices'])}):**\n"
+                        for inv in blocked['invoices'][:3]:
+                            response += f"• {inv.invoice_number} - {inv.vendor_name} (${inv.total_amount:,.2f})\n"
+                        response += "\n"
+                    
+                    if blocked['purchase_orders']:
+                        response += f"**Purchase Orders ({len(blocked['purchase_orders'])}):**\n"
+                        for po in blocked['purchase_orders'][:3]:
+                            response += f"• {po.po_number} - {po.vendor_name} (${po.total_amount:,.2f})\n"
+                        response += "\n"
+                    
+                    if blocked['goods_receipts']:
+                        response += f"**Goods Receipts ({len(blocked['goods_receipts'])}):**\n"
+                        for gr in blocked['goods_receipts'][:3]:
+                            response += f"• {gr.gr_number} (${gr.total_amount:,.2f})\n"
+                        response += "\n"
+                    
+                    response += "\n💡 **Tip:** Ask about a specific document for detailed KG reasoning analysis.\n"
+                    response += "Example: 'Why is invoice INV-961D6D8D blocked?'"
+                    return {'message': response}
+                else:
+                    return {'message': "✅ No blocked documents found in the system."}
         
         # If not asking about blocked, fall back to parent's search
         return super()._handle_why_question(message)
