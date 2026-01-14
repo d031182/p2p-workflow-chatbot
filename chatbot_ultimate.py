@@ -73,31 +73,21 @@ class P2PChatbotUltimate(P2PChatbotRAG):
     def _try_tools(self, message: str) -> Optional[dict]:
         """Try to handle message with tools"""
         
-        # Check for blocked reason queries first (no tool needed, but special handling)
-        if any(kw in message for kw in ['why', 'reason', 'cause']) and 'blocked' in message:
-            # Extract document number if present
-            words = message.split()
-            for word in words:
-                print(f"[DEBUG] Contains 'invoice': {'invoice' in message}")
-                print(f"[DEBUG] Contains 'purchase order': {'purchase order' in message}")
-                
-                # Check for invoice first (more specific)
+        # Outlier analysis
+        if 'analyze_outliers' in self.enabled_tools:
+            if any(kw in message for kw in ['outlier', 'outliers', 'find outlier']):
+                # Determine document type
                 if 'invoice' in message:
-                    print(f"[DEBUG] → Analyzing INVOICES")
                     result = self._tool_analyze_outliers("invoices")
                     return {'message': self._format_outlier_result(result)}
-                # Then check for PO (use word boundaries to avoid false matches)
-                elif 'purchase order' in message or message.startswith('po ') or ' po ' in message or message.endswith(' po'):
-                    print(f"[DEBUG] → Analyzing PURCHASE ORDERS")
+                elif 'purchase order' in message or ' po ' in message or message.endswith(' po') or message.startswith('po '):
                     result = self._tool_analyze_outliers("purchase_orders")
                     return {'message': self._format_outlier_result(result)}
-                elif 'goods receipt' in message or 'gr' in message.split():
-                    print(f"[DEBUG] → Analyzing GOODS RECEIPTS")
+                elif 'goods receipt' in message or ' gr ' in message or message.endswith(' gr') or message.startswith('gr '):
                     result = self._tool_analyze_outliers("goods_receipts")
                     return {'message': self._format_outlier_result(result)}
-                # Default to invoices if unclear
                 else:
-                    print(f"[DEBUG] → Defaulting to INVOICES")
+                    # Default to invoices
                     result = self._tool_analyze_outliers("invoices")
                     return {'message': self._format_outlier_result(result)}
         

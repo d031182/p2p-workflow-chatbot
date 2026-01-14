@@ -18,7 +18,7 @@ workflow = generate_large_sample_data()
 # Initialize ultimate chatbot: RAG + optional tools
 # Default: RAG mode, tools disabled (can enable in settings)
 # Using transformers LLM for better conversational responses
-chatbot = P2PChatbotUltimate(workflow, llm_backend="transformers", tools_enabled=False)
+chatbot = P2PChatbotUltimate(workflow, llm_backend="transformers", tools_enabled=True)
 
 # Initialize default configuration
 app.config['CHATBOT_CONFIG'] = {
